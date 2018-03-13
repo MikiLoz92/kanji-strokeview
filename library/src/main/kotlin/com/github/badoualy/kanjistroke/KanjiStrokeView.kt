@@ -9,6 +9,9 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
 import com.github.badoualy.R
+import io.reactivex.Observable
+import io.reactivex.subjects.PublishSubject
+import io.reactivex.subjects.Subject
 import java.io.File
 import java.io.InputStream
 import java.util.TreeSet
@@ -45,6 +48,8 @@ class KanjiStrokeView @JvmOverloads constructor(context: Context, attrs: Attribu
         get() = pathList.size
     val isKanjiDrawn: Boolean
         get() = strokeIndex == strokeCount
+
+    private var animationSubject = PublishSubject.create<Int>()
 
     // Used for strokes
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -105,6 +110,7 @@ class KanjiStrokeView @JvmOverloads constructor(context: Context, attrs: Attribu
             }
             fingerPaint.strokeWidth = a.getDimension(R.styleable.KanjiStrokeView_svFingerRadius,
                                                      resources.getDimension(R.dimen.sv_default_finger_radius))
+            a.recycle()
         }
 
         animPaint.strokeWidth = paint.strokeWidth
@@ -197,14 +203,13 @@ class KanjiStrokeView @JvmOverloads constructor(context: Context, attrs: Attribu
     fun loadSvg(file: File) = loadSvg(file.readText())
 
     @JvmOverloads
-    fun startDrawAnimation(delay: Long = 0) {
+    fun startDrawAnimation(delay: Long = 0): Observable<Int>? {
         if (animStarted) {
             drawAnimation?.cancel()
             drawAnimation = null
         }
         strokeIndex = 0
-        if (strokeCount > 0)
-            startStrokeAnimation(delay)
+        return if (strokeCount > 0) startStrokeAnimation(delay) else Observable.empty()
     }
 
     fun highlightStroke(stroke: Int) {
@@ -222,7 +227,8 @@ class KanjiStrokeView @JvmOverloads constructor(context: Context, attrs: Attribu
         invalidate()
     }
 
-    private fun startStrokeAnimation(delay: Long) {
+    private fun startStrokeAnimation(delay: Long): Observable<Int> {
+
         val length = pathMeasureList[strokeIndex].length
         drawAnimation = ValueAnimator.ofFloat(0f, 1f).apply {
             addUpdateListener { animation ->
@@ -232,10 +238,10 @@ class KanjiStrokeView @JvmOverloads constructor(context: Context, attrs: Attribu
                 }
 
                 dashPathEffect = DashPathEffect(floatArrayOf(length, length),
-                                                length * (1f - animation.animatedFraction))
+                        length * (1f - animation.animatedFraction))
 
                 pathMeasureList[strokeIndex].getPosTan(length * animation.animatedFraction,
-                                                       pos, null)
+                        pos, null)
                 fingerPosition.set(pos[0], pos[1])
                 invalidate()
             }
@@ -253,9 +259,13 @@ class KanjiStrokeView @JvmOverloads constructor(context: Context, attrs: Attribu
 
                     if (++strokeIndex < strokeCount) {
                         startStrokeAnimation(0)
+                        animationSubject.onNext(strokeIndex)
                     } else {
                         this@KanjiStrokeView.drawAnimation = null
                         dashPathEffect = null
+                        animationSubject.onNext(strokeIndex)
+                        animationSubject.onComplete()
+                        animationSubject = PublishSubject.create<Int>()
                     }
                 }
             })
@@ -265,6 +275,7 @@ class KanjiStrokeView @JvmOverloads constructor(context: Context, attrs: Attribu
         }
         drawAnimation!!.startDelay = delay
         drawAnimation!!.start()
+        return animationSubject
     }
 
     private fun applyTransformMatrix() {
