@@ -5,6 +5,8 @@
 
 > **Warning**: This library was developed to use with KanjiVG files, if you want to use it with another source, you'll need to update the code and change the input rect size to match the size of your input files (or the view will not be able to scale properly).
 
+> **Fork notice**: This fork differs from the original library in the fact that the KanjiStrokeView's animate function returns an Observable that can be used to be notified of  
+
 Setup
 ----------------
 
@@ -18,7 +20,7 @@ repositories {
 
 Then, add the library dependency:
 ```gradle
-compile 'com.github.badoualy:kanji-strokeview:1.0.0'
+compile 'com.github.MikiLoz92:kanji-strokeview:1.1.0'
 ```
 
 
